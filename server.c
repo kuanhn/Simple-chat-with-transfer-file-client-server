@@ -26,25 +26,27 @@
 typedef struct tempFileDes{
   int filedes; // use to write and read file
   char name[NAME_SIZE];
-  char receiver[NAME_SIZE];
+  int receiver_id;
   int send_id;
 } TempFileDes;
 
-int createTempfile(int sender_id, char* receiver, char* name, TempFileDes array[], int* num_files);
+int createTempfile(int sender_id, int receiver_id, char* name, TempFileDes array[], int* num_files);
 void error(const char *msg);
-void exitClient(int fd, fd_set *readfds, char fd_array[], char* name_array[], int *num_clients);
+void exitClient(int fd, fd_set *readfds, char fd_array[], char* name_array[], int *num_clients, TempFileDes tempfile_array[], int *num_files);
 char *trimWhitespace(char *str);
 
 /* 
    Message format:
    M[receiver][message] -> send simple message
-   F[receiver][filedescription] -> communicate for firsttime transfer
-   T[id][package] -> transfer file follow id
-   C[key:value] -> send configure (ex: nickname register)
+   F[receiver][filedescription] -> communicate before transfer
+   T[id][package] -> upload file follow id
+   D[id][filedescription] -> communicate before download
+   C[key]:[value] -> send configure (ex: nickname register)
    N[notify string] -> notify user
    X[message] -> client exit	      
 
    receiver's length: NAME_SIZE(20)
+   key's length: 2   
 */
 
 
@@ -62,11 +64,12 @@ int main(int argc, char *argv[]) {
   char fd_array[MAX_CLIENTS];
   char* client_name_array[MAX_CLIENTS];
   TempFileDes tempfile_array[MAX_FILES];
+  int fs_block_sz;
   fd_set readfds, testfds, clientfds;
   char msg[MSG_SIZE + 1];     
   char kb_msg[MSG_SIZE + 22]; 
-  char pkgbuf[LENGTH+21]; // read package from client  
-  char revbuf[LENGTH]; // Receiver buffer 
+  char pkgbuf[LENGTH+5]; // read package from client  
+  char revbuf[LENGTH]; // receiver buffer 
    
 
   /*Server==================================================*/
@@ -99,7 +102,7 @@ int main(int argc, char *argv[]) {
     /* init server variable */
     memset(client_name_array, 0, sizeof(char*)*MAX_CLIENTS);
     memset(tempfile_array, 0, sizeof(TempFileDes)*MAX_FILES);
-    memset(pkgbuf, 0, LENGTH+10);
+    memset(pkgbuf, 0, LENGTH+5);
     
 
     /*  Now wait for clients and requests */
@@ -149,13 +152,14 @@ int main(int argc, char *argv[]) {
 	    }
 	  } else if(fd) {  /*Process Client specific activity*/	    
 	    //read data from open socket
-	    result = read(fd, pkgbuf, LENGTH+10);	    
+	    result = read(fd, pkgbuf, LENGTH+5);	    
                  
 	    if(result==-1) perror("read()");
 	    else if(result>0){
 	      /* if transfer file, use pkgbuf directly, 
 		 other case will use msg with smaller size */
-	      printf("Server receive:%s|\n", pkgbuf);
+	      if (result < 80)
+		printf("Server receive:%s|\n", pkgbuf);
 	      int id = -1, check;       
 	      char code = pkgbuf[0];
 	      char name[MSG_SIZE];
@@ -210,12 +214,12 @@ int main(int argc, char *argv[]) {
 		}
 		break;
 	      case 'X':
-		exitClient(fd,&readfds, fd_array, client_name_array, &num_clients);
+		exitClient(fd,&readfds, fd_array, client_name_array, &num_clients, tempfile_array, &num_files);
 		break;
 	      case 'C':
 		memcpy(msg, pkgbuf, MSG_SIZE); /* use msg buffer */
 		printf("Configure for client %d\n",fd);
-		memset(name, 0, strlen(name));
+		memset(name, 0, NAME_SIZE);
 		sscanf(msg, "C%2d:%s", &id, name);
 		trimName = trimWhitespace(name);
 		/* check name */
@@ -256,23 +260,40 @@ int main(int argc, char *argv[]) {
 		strcpy(temp, msg+21);
 		name[NAME_SIZE] = '\0';
 		trimName = trimWhitespace(name);
+		/* find receiver_id */
+		int recv_id = -1;
+		for(i=0;i<num_clients;i++)
+		  if (client_name_array[i] != NULL)
+		    if(strcmp(trimName, client_name_array[i]) == 0){
+		      recv_id = fd_array[i];
+		      break;
+		    }
+		if (recv_id < 0){
+		  write(fd, "NInvalid receiver", 17);
+		  break;
+		}
+
 		/* check if connect is establish */
 		id = -1;
 		for (i=0;i<num_files;i++){
 		  if (tempfile_array[i].send_id == fd)
-		    if (strcpy(tempfile_array[i].receiver, trimName)==0) { id = i; break;}
+		    if (tempfile_array[i].receiver_id == recv_id)
+		      { id = i; break;}
 		}
 		
-		if (id < 0)
-		  id = createTempfile(fd, name, temp, tempfile_array, &num_files);
-		if (id < 0){ /* create temp file fail*/
-		  sprintf(kb_msg, "N%s", "Fail to create temp file on server");
-		  write(fd, kb_msg,  strlen(kb_msg));
-		  break;
+		if (id < 0 || strcmp(temp, tempfile_array[i].name)!=0){	  
+		  id = createTempfile(fd, recv_id, temp, tempfile_array, &num_files);
+		  if (id < 0){ /* create temp file fail*/
+		    sprintf(kb_msg, "N%s", "Fail to create temp file on server");
+		    write(fd, kb_msg,  strlen(kb_msg));
+		    break;
+		  }
+		  sprintf(kb_msg, "F%4d%s", id, temp);
+		  write(fd, kb_msg, strlen(kb_msg));
+		} else {
+		  sprintf(msg, "N%s", "This file is uploaded by you");
+		  write(fd, msg, strlen(msg));
 		}
-		sprintf(kb_msg, "F%4d%s", id, temp);
-		write(fd, kb_msg, strlen(kb_msg));
-		printf("File:%s\n",kb_msg);
 		fflush(stdout);
 		break;
 	      case 'T': /* start transfer file */
@@ -280,28 +301,65 @@ int main(int argc, char *argv[]) {
 		memcpy(temp, pkgbuf+1, 4);
 		temp[4] = '\0';
 		id = atoi(temp);
-		printf("id:%d\n",id);
+		printf("Result-%d\n",result);
 		/* validate info */
-		if (tempfile_array[i].send_id != fd) break;
-		int filedes = tempfile_array[i].filedes;
-		if((i= write(filedes,pkgbuf+5, result-5)) == -1){
+		if (tempfile_array[id].send_id != fd) break;
+		int filedes = tempfile_array[id].filedes;
+		if (filedes == -1) break;
+		
+		if((i = write(filedes,pkgbuf+5, result-5)) == -1){
 		  printf("write failed with error [%s]\n", strerror(errno));
 		}
-		memset(pkgbuf, 0, LENGTH+10);
-		// rewind file
-		if(-1 == lseek(filedes,0,SEEK_SET)){
-		    printf("\n lseek failed with error [%s]\n",strerror(errno));
+		if (LENGTH + 5 > result) { /* transfer is ended, notify user */
+		  /* validate receiver_id */
+		  int check = 0;
+		  for(i=0;i<num_clients;i++)
+		    if (fd_array[i] == tempfile_array[id].receiver_id){
+		      check = 1; break;
+		    }
+		  if (!check){
+		    sprintf(msg, "NCant find receiver anymore, file %s will be deleted", tempfile_array[id].name);
+		    write(fd, msg, strlen(msg));
+		    close(tempfile_array[id].filedes);
+		  } else {
+		    sprintf(msg, "NYou can down load file %s now with file fileid: %d", tempfile_array[id].name, id);
+		    write(tempfile_array[id].receiver_id, msg,  strlen(msg));
+		  }
 		}
-		read(filedes,pkgbuf, LENGTH+10);		
-		printf("Transfer:%s\n", pkgbuf);
+		break;
+	      case 'D': /* download file use id */
+		/* get tempfile info */
+		memcpy(temp, pkgbuf+1, 4);
+		temp[4] = '\0';
+		id = atoi(temp);
+
+		/* validate info */
+		if (tempfile_array[id].receiver_id != fd) break;
+		filedes = tempfile_array[id].filedes;
+		if (filedes == -1) break;
+		
+		lseek(filedes,0,SEEK_SET); /* rewind */
+		sprintf(pkgbuf, "D%4d%s", id, tempfile_array[id].name);
+
+		/* send file info first */
+		write(fd, pkgbuf, strlen(pkgbuf));
+
+		memset(revbuf, 0, LENGTH);
+		sprintf(pkgbuf, "T%4d", id);
+		while((fs_block_sz = read(filedes, revbuf, LENGTH)) > 0){
+		  memcpy(pkgbuf+5, revbuf, fs_block_sz);
+		  write(fd, pkgbuf, fs_block_sz+5);
+		  memset(revbuf, 0, LENGTH);
+		}
+		printf("transfer successfully\n");		
 		break;
 	      default:
 		break;
 	      }                                  	    
-	      memset(pkgbuf, 0, LENGTH+10);
+	      memset(pkgbuf, 0, LENGTH+5);
 	    } 
 	  } else {  /* A client is leaving */
-	    exitClient(fd,&readfds, fd_array, client_name_array, &num_clients);
+	    exitClient(fd,&readfds, fd_array, client_name_array, &num_clients, tempfile_array, &num_files);
 	  }//if
 	}//if
       }//for
@@ -310,14 +368,13 @@ int main(int argc, char *argv[]) {
 }//main
 
 
-void error(const char *msg)
-{
+void error(const char *msg){
   perror(msg);
   exit(1);
 }
 
-void exitClient(int fd, fd_set *readfds, char fd_array[], char* name_array[], int *num_clients){
-  int i;
+void exitClient(int fd, fd_set *readfds, char fd_array[], char* name_array[], int *num_clients, TempFileDes tempfile_array[], int *num_files){
+  int i,j;
     
   close(fd);
   FD_CLR(fd, readfds); //clear the leaving client from the set
@@ -328,18 +385,27 @@ void exitClient(int fd, fd_set *readfds, char fd_array[], char* name_array[], in
     (fd_array[i]) = (fd_array[i + 1]);
     strcpy(name_array[i], name_array[i+1]);
   }
+  i = 0;
+  while (i <= (*num_files) - 1){
+    if (tempfile_array[i].send_id == fd || tempfile_array[i].receiver_id == fd){
+      close(tempfile_array[i].filedes);
+      tempfile_array[i].filedes = -1;
+      for (j=i;j<(*num_files)-1;j++){
+	tempfile_array[j] = tempfile_array[j+1];
+      }
+      (*num_files)--;
+    } else i++;
+  }
   (*num_clients)--;
 }
 
-char *trimWhitespace(char *str)
-{
+char *trimWhitespace(char *str){
   char *end;
 
   // Trim leading space
   while(isspace(*str)) str++;
 
-  if(*str == 0)  // All spaces?
-    return str;
+  if(*str == 0)  return str;
 
   // Trim trailing space
   end = str + strlen(str) - 1;
@@ -351,19 +417,23 @@ char *trimWhitespace(char *str)
   return str;
 }
 
-int createTempfile(int sender_id, char* receiver, char* name, TempFileDes array[], int* num_files){
+int createTempfile(int sender_id, int receiver_id, char* name, TempFileDes array[], int* num_files){
   TempFileDes temp;
   char tempName[MSG_SIZE];
+  /* create tempfile */
   strcpy(tempName, "./temp_XXXXXX");
   int filedes = mkstemp(tempName);
+  //unlink(tempName);
+
   if(filedes<1){
     printf("\n Creation of temp file failed with error [%s]\n",strerror(errno));
     return -1;
   }
   printf("a tempfile create at %s\n",tempName);  
 
+  /* add tempfile description */
   strcpy(temp.name, name);
-  strcpy(temp.receiver, receiver);
+  temp.receiver_id = receiver_id;
   temp.send_id= sender_id;
   temp.filedes = filedes;
   array[(*num_files)++] = temp;

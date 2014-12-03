@@ -92,10 +92,11 @@ int main(int argc, char *argv[]) {
   char kb_msg[MSG_SIZE + 22]; 
   char revbuf[LENGTH]; 
   char sdbuf[LENGTH]; 
-  char pkgbuf[LENGTH+10];
+  char pkgbuf[LENGTH+5];
   int fs_block_sz; 
   char fileTransfer[MSG_SIZE];
-  FILE *f;
+  char fileDownload[MSG_SIZE];
+  FILE *f, *fr;
   int isUploading;
    
   /*Client variables=======================*/
@@ -144,6 +145,8 @@ int main(int argc, char *argv[]) {
 
     /* init client variable */
     memset(nickname, 0, MSG_SIZE); /* init nickname to zero */
+    strcpy(fileTransfer, "");
+    strcpy(fileDownload, "");
     clientid = -1;
     is_nickname_set = 0;
     isUploading = 0;
@@ -156,19 +159,16 @@ int main(int argc, char *argv[]) {
     /*  Now wait for messages from the server */
     while (1) {
       testfds=clientfds;
-      select(FD_SETSIZE,&testfds,NULL,NULL,NULL);
-       
-      /* set prompt */
-      /*if (nickname[0] != 0)	printf("%s>",nickname);
-       */
+      select(FD_SETSIZE,&testfds,NULL,NULL,NULL);       
 
       for(fd=0;fd<FD_SETSIZE;fd++){
 	if(FD_ISSET(fd,&testfds)){	  
 	  if(fd==sockfd){   /*Accept data from open socket */	       
 	    //read data from open socket
-	    result = read(sockfd, msg, MSG_SIZE);
+	    result = read(sockfd, pkgbuf, LENGTH+5);
 
 	    if (clientid < 0 || !is_nickname_set){ /* set client id before start chat */
+	      memcpy(msg, pkgbuf, result);
 	      msg[result] = '\0'; /* Terminate string with null */
 	      if(msg[0] == 'C'){
 		int key = -1;
@@ -219,13 +219,15 @@ int main(int argc, char *argv[]) {
 		} while(1);
 	      }
 	    } else { /* start show chat when clientid is set */
-	      msg[result] = '\0'; /* Terminate string with null */	     
-	      char code = msg[0];
+	      char code = pkgbuf[0];
 	      char temp[MSG_SIZE];
 	      char* trimName;
 	      int id;
+
 	      switch(code){
 	      case 'M':
+		memcpy(msg, pkgbuf, result);
+		msg[result] = '\0'; /* Terminate string with null */ 
 		strcpy(temp, msg+1);
 		temp[NAME_SIZE] = '\0';
 		char* trimName = trimWhitespace(temp);
@@ -240,16 +242,22 @@ int main(int argc, char *argv[]) {
 		fflush(stdout);
 		break;
 	      case 'N':
+		memcpy(msg, pkgbuf, result);
+		msg[result] = '\0'; /* Terminate string with null */ 
 		printf("\nWARN: %s\n",msg+1);
 		printf("%s>",nickname);
 		fflush(stdout);
 		break;
 	      case 'X':
+		memcpy(msg, pkgbuf, result);
+		msg[result] = '\0'; /* Terminate string with null */ 
 		printf("%s\n",msg+1);
 		close(sockfd); //close the current client
 		exit(0);
 		break;
 	      case 'F': /* receive start signal to transfer file */
+		memcpy(msg, pkgbuf, result);
+		msg[result] = '\0'; /* Terminate string with null */ 
 		if (!isUploading){ /* check if uploading or not*/
 		  /* start transfer id */
 		  strncpy(temp, msg+1, 4);
@@ -276,6 +284,7 @@ int main(int argc, char *argv[]) {
 		    printf("transfer successfully\n");
 		    isUploading = 0;
 		    strcpy(fileTransfer, "");
+		    fflush(stdout);
 		    fclose(f);
 		  }
 		}else
@@ -283,9 +292,46 @@ int main(int argc, char *argv[]) {
 		printf("%s>",nickname);
 		fflush(stdout);
 		break;
+	      case 'D': /* communicate before download */
+		memcpy(msg, pkgbuf, result);
+		msg[result] = '\0'; /* Terminate string with null */ 
+		strcpy(temp, msg+5);
+		strcpy(fileDownload, temp);
+		if ((fr=fopen(fileDownload, "w")) == NULL){
+		  printf("\nError: Cant open file %s\n", fileDownload);
+		  printf("Download fail\n");
+		  strcpy(fileDownload, ""); /* rollback */;
+		}else
+		  fclose(fr); /* just create blank file */
+		printf("%s>",nickname);
+		fflush(stdout);
+		break;
+	      case 'T': /* dowload file */
+		if (strcmp(fileDownload, "") != 0){
+		  if ((fr=fopen(fileDownload, "a")) == NULL){
+		    printf("\nError: Cant open file %s\n", fileDownload);
+		    printf("Download fail\n");
+		    strcpy(fileDownload, ""); /* rollback */;
+		  } else {
+		    int count =fwrite(pkgbuf+5, sizeof(char), result-5, fr);
+		    fclose(fr);
+		    if (result < LENGTH + 5) { /* download finish */
+		      printf("\nDownload finished\n");
+		      strcpy(fileDownload, "");
+		    }
+		  }		      		  
+		  if (strcmp(fileDownload, "") == 0){
+		    printf("%s>", nickname);
+		    fflush(stdout);
+		  }
+		}       
+		break;
+	      default:
+		break;
 	      }    
-	      memset(msg, 0, MSG_SIZE);
-	      memset(kb_msg, 0, MSG_SIZE);
+	      memset(msg, 0, MSG_SIZE+1);
+	      memset(kb_msg, 0, MSG_SIZE+22);
+	      memset(pkgbuf, 0, LENGTH+5);
 	    }                         	  
 	  }
 	  else if(fd == 0){ /*process keyboard activiy*/                
@@ -309,12 +355,23 @@ int main(int argc, char *argv[]) {
 		  /* send message */
 		  sprintf(msg, "M%20s%s", receiver,content);
 		  write(sockfd, msg, strlen(msg));
-		} else if (strcmp(command,"file")==0 && strcmp("",receiver)!=0 && strcmp("",content)!=0){
+		} else if (strcmp(command,"file")==0 
+			   && strcmp("",receiver)!=0 
+			   && strcmp("",content)!=0){
 		  /* communicate before transfer 
 		     content in this case is file name*/	
 		  strcpy(fileTransfer, content);
 		  sprintf(kb_msg, "F%20s%s", receiver, fileTransfer);
 		  write(sockfd, kb_msg, strlen(kb_msg));				 
+		} else if (strcmp(command, "down") == 0
+			   && strcmp("", receiver) != 0){
+		  /* download file use id 
+		   receiver in this case is id*/
+		  int id = atoi(receiver);
+		  if (id >= 0){
+		    sprintf(msg, "D%4d", id);
+		    write(sockfd, msg, strlen(msg));
+		  }
 		}
 		printf("%s>",nickname);
 		fflush(stdout);

@@ -12,4 +12,6 @@ Usage:
 
 + `/to <username> <message>` to send message
 
-+ `/file <username> <filepath>` to send file (now only tiny file only)
++ `/file <username> <filepath>` to send file
+
++ `/down <fileid>` to download file sent by another user
