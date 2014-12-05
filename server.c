@@ -12,7 +12,7 @@
 #include <ctype.h>          
 #include <arpa/inet.h>
 
-#define MSG_SIZE 80
+#define MSG_SIZE 200
 #define NAME_SIZE 20
 #define MAX_CLIENTS 95
 #define MAX_SIZE 1000
@@ -25,7 +25,7 @@
 
 typedef struct tempFileDes{
   int filedes; // use to write and read file
-  char name[NAME_SIZE];
+  char name[MSG_SIZE];
   int receiver_id;
   int send_id;
 } TempFileDes;
@@ -258,6 +258,7 @@ int main(int argc, char *argv[]) {
 		msg[strlen(msg)] = '\0';
 		strcpy(name, msg+1);
 		strcpy(temp, msg+21);
+		printf("tempfile:%s|",temp);
 		name[NAME_SIZE] = '\0';
 		trimName = trimWhitespace(name);
 		/* find receiver_id */
@@ -281,7 +282,7 @@ int main(int argc, char *argv[]) {
 		      { id = i; break;}
 		}
 		
-		if (id < 0 || strcmp(temp, tempfile_array[i].name)!=0){	  
+		if (id < 0 || strcmp(temp, tempfile_array[i].name)!=0){
 		  id = createTempfile(fd, recv_id, temp, tempfile_array, &num_files);
 		  if (id < 0){ /* create temp file fail*/
 		    sprintf(kb_msg, "N%s", "Fail to create temp file on server");
@@ -343,8 +344,10 @@ int main(int argc, char *argv[]) {
 
 		/* send file info first */
 		write(fd, pkgbuf, strlen(pkgbuf));
+		fflush(stdout);
 
 		memset(revbuf, 0, LENGTH);
+		memset(pkgbuf, 0, LENGTH+5);
 		sprintf(pkgbuf, "T%4d", id);
 		while((fs_block_sz = read(filedes, revbuf, LENGTH)) > 0){
 		  memcpy(pkgbuf+5, revbuf, fs_block_sz);
@@ -429,7 +432,7 @@ int createTempfile(int sender_id, int receiver_id, char* name, TempFileDes array
     printf("\n Creation of temp file failed with error [%s]\n",strerror(errno));
     return -1;
   }
-  printf("a tempfile create at %s\n",tempName);  
+  printf("a tempfile create at %s (%s)\n",tempName, name);  
 
   /* add tempfile description */
   strcpy(temp.name, name);

@@ -9,3 +9,5 @@ server.o: server.c
 	cc -c server.c
 clean:
 	rm -f *.o
+clean-all:
+	rm -f *.o temp_* client server

@@ -12,7 +12,7 @@
 #include <ctype.h>          
 #include <arpa/inet.h>
 
-#define MSG_SIZE 80
+#define MSG_SIZE 200
 #define NAME_SIZE 20
 #define MAX_SIZE 1000
 #define MYPORT 7400
@@ -295,6 +295,7 @@ int main(int argc, char *argv[]) {
 	      case 'D': /* communicate before download */
 		memcpy(msg, pkgbuf, result);
 		msg[result] = '\0'; /* Terminate string with null */ 
+		memset(temp, 0, strlen(temp));
 		strcpy(temp, msg+5);
 		strcpy(fileDownload, temp);
 		if ((fr=fopen(fileDownload, "w")) == NULL){
