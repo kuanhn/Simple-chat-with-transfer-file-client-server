@@ -43,6 +43,7 @@ char *trimWhitespace(char *str);
    D[id][filedescription] -> communicate before download
    C[key]:[value] -> send configure (ex: nickname register)
    N[notify string] -> notify user
+   L[users/files] -> list all users/ files (that user can download)
    X[message] -> client exit	      
 
    receiver's length: NAME_SIZE(20)
@@ -51,7 +52,7 @@ char *trimWhitespace(char *str);
 
 
 int main(int argc, char *argv[]) {
-  int i=0;
+  int i=0,j;
    
   int port;
   int num_clients = 0;
@@ -120,6 +121,8 @@ int main(int argc, char *argv[]) {
 	      // Add new clientfd to file descriptor set
 	      FD_SET(client_sockfd, &readfds);
 	      fd_array[num_clients]=client_sockfd;
+	      client_name_array[num_clients] = (char*)malloc(NAME_SIZE+1);
+	      strcpy(client_name_array[num_clients],"");
 	      /*Client ID*/
 	      printf("Client %d joined\n",num_clients++);
 	      fflush(stdout);
@@ -215,6 +218,7 @@ int main(int argc, char *argv[]) {
 		break;
 	      case 'X':
 		exitClient(fd,&readfds, fd_array, client_name_array, &num_clients, tempfile_array, &num_files);
+		printf("clients:%d, files:%d\n",num_clients, num_clients);
 		break;
 	      case 'C':
 		memcpy(msg, pkgbuf, MSG_SIZE); /* use msg buffer */
@@ -229,20 +233,20 @@ int main(int argc, char *argv[]) {
 		}
 		check = 1;
 		for(i=0;i<num_clients;i++){
-		  if (client_name_array[i] != NULL){		   
+		  if (client_name_array[i] != NULL){
+		    printf("client:%s|\n",client_name_array[i]);
 		    if (!strcmp(name, client_name_array[i])) {
 		      check = 0;
 		      break;
 		    }
 		  } 
 		}
-		printf("Name: %s, %s\n", name, 1?"ok":"not valid");
+		printf("Name: %s, %s\n", name, check?"ok":"not valid");
 		if (check){ /* name is ok */
 		  sprintf(kb_msg, "C%2d:%s", CFG_NICK_KEY, name);
 		  /* add name to client_name_array */
 		  for (i=0;i<num_clients;i++){
 		    if (fd_array[i] == fd){
-		      client_name_array[i] = (char*)malloc(strlen(name)+1);
 		      strcpy(client_name_array[i], name);
 		      break;
 		    }
@@ -356,6 +360,50 @@ int main(int argc, char *argv[]) {
 		}
 		printf("transfer successfully\n");		
 		break;
+	      case 'L':
+		memcpy(msg, pkgbuf, MSG_SIZE);
+		msg[result] = '\0';
+		memcpy(temp, msg+1, 5);
+		temp[5] = '\0';
+		if (strcmp(temp,"users")==0){
+		  for (i=0;i < num_clients;i+=30){/* send 30 users per package */
+		    memset(pkgbuf, 0, LENGTH+5);
+		    strcpy(pkgbuf, "Lusers");
+		    for (j=0;j<30 && j+i< num_clients;j++){
+		      if (fd_array[i+j] == fd) continue;
+		      sprintf(pkgbuf+6+j*20,"%20s",client_name_array[i+j]);		      
+		    }
+		    write(fd, pkgbuf, 6+j*20);
+		    printf("sent:%s|\n",pkgbuf);
+		    fflush(stdout);
+		  }
+		} else if (strcmp(temp,"files") == 0){
+		  int count = 0;
+		  memset(pkgbuf, 0, LENGTH+5);
+		  strcpy(pkgbuf, "Lfiles");
+		  for (i=0;i<num_files;i++){
+		    if (tempfile_array[i].receiver_id == fd){
+		      sprintf(pkgbuf+6+count*25, "%4d:%20s", i, tempfile_array[i].name);
+		      count++;
+		    }
+		    if (count >= 30){ // send when enough 30 files data
+		      write(fd, pkgbuf, 6+750);
+		      /* re-init after send*/
+		      memset(pkgbuf, 0, LENGTH+5);
+		      strcpy(pkgbuf, "Lfiles");
+		      count = 0;
+		      printf("sent:%s|\n",pkgbuf);
+		      fflush(stdout);
+		    }
+		  }
+		  /* case not enought 30 file when end for*/
+		  if (count > 0){
+		    write(fd, pkgbuf, 6+count*25);
+		    printf("sent:%s|\n",pkgbuf);
+		    fflush(stdout);
+		  }
+		}
+		break;
 	      default:
 		break;
 	      }                                  	    
@@ -388,6 +436,7 @@ void exitClient(int fd, fd_set *readfds, char fd_array[], char* name_array[], in
     (fd_array[i]) = (fd_array[i + 1]);
     strcpy(name_array[i], name_array[i+1]);
   }
+  (*num_clients)--;
   i = 0;
   while (i <= (*num_files) - 1){
     if (tempfile_array[i].send_id == fd || tempfile_array[i].receiver_id == fd){
@@ -399,7 +448,6 @@ void exitClient(int fd, fd_set *readfds, char fd_array[], char* name_array[], in
       (*num_files)--;
     } else i++;
   }
-  (*num_clients)--;
 }
 
 char *trimWhitespace(char *str){

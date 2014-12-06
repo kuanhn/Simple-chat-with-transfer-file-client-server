@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="600.0" prefWidth="400.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="main.controllers.MainViewController">
+<children><BorderPane prefHeight="200.0" prefWidth="200.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+<top><AnchorPane prefHeight="35.0" prefWidth="450.0" BorderPane.alignment="CENTER">
+<children><Button mnemonicParsing="false" onAction="#closeScene" prefHeight="25.0" prefWidth="35.0" text="x" AnchorPane.rightAnchor="20.0" AnchorPane.topAnchor="0.0" /><Button mnemonicParsing="false" onAction="#minimizeScene" prefWidth="35.0" text="-" AnchorPane.rightAnchor="55.0" />
+</children></AnchorPane>
+</top>
+<bottom><AnchorPane prefHeight="25.0" prefWidth="200.0" BorderPane.alignment="CENTER" />
+</bottom>
+<center><BorderPane prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+<top><AnchorPane prefHeight="70.0" prefWidth="400.0" BorderPane.alignment="CENTER">
+<children><GridPane AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0">
+  <columnConstraints>
+    <ColumnConstraints hgrow="SOMETIMES" maxWidth="315.0" minWidth="10.0" prefWidth="294.0" />
+    <ColumnConstraints hgrow="SOMETIMES" maxWidth="326.0" minWidth="10.0" prefWidth="106.0" />
+  </columnConstraints>
+  <rowConstraints>
+    <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+    <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+  </rowConstraints>
+<children><Label text="Nickname">
+<GridPane.margin>
+<Insets left="10.0" />
+</GridPane.margin>
+<font>
+<Font size="14.0" />
+</font></Label><Label fx:id="nicknameLabel" text="Nickname here" GridPane.rowIndex="1">
+<padding>
+<Insets left="10.0" />
+</padding>
+<font>
+<Font size="24.0" />
+</font></Label>
+</children>
+</GridPane>
+</children></AnchorPane>
+</top>
+<center><ListView fx:id="listChatUserView" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER" />
+</center></BorderPane>
+</center></BorderPane>
+</children></AnchorPane>

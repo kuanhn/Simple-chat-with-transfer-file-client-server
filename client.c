@@ -70,12 +70,16 @@ void analyzeCommand(char* message, char* command, char* receiver, char* content)
 /* 
    Message format:
    M[receiver][message] -> send simple message
-   F[receiver][filelink] -> to transfer file to server
-   C[key:value] -> send configure (ex: nickname register)
+   F[receiver][filedescription] -> communicate before transfer
+   T[id][package] -> upload file follow id
+   D[id][filedescription] -> communicate before download
+   C[key]:[value] -> send configure (ex: nickname register)
    N[notify string] -> notify user
+   L[users/files] -> list all users/ files (that user can download)
    X[message] -> client exit	      
 
    receiver's length: NAME_SIZE(20)
+   key's length: 2   
 */
 
 
@@ -327,6 +331,31 @@ int main(int argc, char *argv[]) {
 		  }
 		}       
 		break;
+	      case 'L':
+		memcpy(temp, pkgbuf+1, 5);
+		temp[5] = '\0';
+		printf("\n");
+		if (strcmp(temp,"users")==0){
+		  for (i=0;i < result-6;i+=20){
+		    memcpy(msg, pkgbuf+6+i, 20);
+		    msg[20] = '\0';
+		    char* trim = trimWhitespace(msg);
+		    strcpy(temp, trim);
+		    printf("user: %s|\n",temp);
+		  }
+		} else if(strcmp(temp, "files")==0){
+		  for (i=0;i<result-6;i+=25){
+		    memcpy(msg, pkgbuf+6+i, 25);
+		    msg[25] = '\0';
+		    sscanf(msg,"%4d:%20s",&id, temp);
+		    char* trim = trimWhitespace(temp);
+		    strcpy(temp, trim);
+		    printf("file: id=%d; name=%s|\n",id, temp);
+		  }
+		}
+		printf("%s>",nickname);
+		fflush(stdout);
+		break;
 	      default:
 		break;
 	      }    
@@ -373,10 +402,22 @@ int main(int argc, char *argv[]) {
 		    sprintf(msg, "D%4d", id);
 		    write(sockfd, msg, strlen(msg));
 		  }
+		} else if (strcmp(command, "list") == 0
+			   && strcmp("users", receiver) == 0){
+		  /* list all users in server*/
+		  strcpy(msg, "Lusers");
+		  write(sockfd, msg, strlen(msg));
+		} else if (strcmp(command, "list") == 0
+			   && strcmp("files", receiver) == 0){
+		  /* list all files in server*/
+		  strcpy(msg, "Lfiles");
+		  write(sockfd, msg, strlen(msg));
 		}
 		printf("%s>",nickname);
 		fflush(stdout);
 	      }
+	      memset(msg, 0, MSG_SIZE+1);
+	      memset(kb_msg, 0, MSG_SIZE+22);
 	    }                                                 
 	  }          
 	}
