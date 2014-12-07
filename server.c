@@ -248,6 +248,7 @@ int main(int argc, char *argv[]) {
 		  sprintf(kb_msg, "C%2d:%s", CFG_NICK_KEY, name);
 		  /* add name to client_name_array */
 		  for (i=0;i<num_clients;i++){
+		    printf(">>%s|\n",client_name_array[i]);
 		    if (fd_array[i] == fd){
 		      strcpy(client_name_array[i], name);
 		      break;
@@ -391,7 +392,7 @@ int main(int argc, char *argv[]) {
 		    decrease = 0;
 		    for (j=0;j<30 && j+i< num_clients;j++){
 		      if (fd_array[i+j] == fd) {decrease++; continue;}
-		      sprintf(pkgbuf+6+j*20-decrease,"%20s",client_name_array[i+j]);		      
+		      sprintf(pkgbuf+6+(j-decrease)*20,"%20s",client_name_array[i+j]);		      
 		    }
 		    write(fd, pkgbuf, 6+(j-decrease)*20);
 		    printf("sent:%s|\n",pkgbuf);

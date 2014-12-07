@@ -275,17 +275,14 @@ public class MainViewController extends ViewController {
                     case 'L':
                         listUser = new ArrayList<String>();
                         List<String> list = null;
-                        try {
-                            list = helper.getMessages(6+600);
-
-                            for (String str: list){
-                                listUser.addAll(parseListUser(str.substring(6)));
-                            }
-                            listChatUserView.getItems().clear();
-                            listChatUserView.getItems().addAll(listUser);
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
+                                listUser.addAll(parseListUser(message.substring(6)));
+                            Platform.runLater(new Runnable() {
+                                @Override
+                                public void run() {
+                                    listChatUserView.getItems().clear();
+                                    listChatUserView.getItems().addAll(listUser);
+                                }
+                            });
                         break;
                     case 'N':
                         Logger.writeLog(message.substring(1));

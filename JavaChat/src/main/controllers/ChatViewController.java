@@ -93,9 +93,7 @@ public class ChatViewController extends ViewController{
     }
 
     public void showMessage(String nickname, String message){
-        chatContents.add(nickname+":"+message);
-        chatView.getItems().clear();
-        chatView.getItems().addAll(chatContents);
+        chatView.getItems().add(nickname+":"+message);
     }
 
     public class ListChatCell extends ListCell<String> {
