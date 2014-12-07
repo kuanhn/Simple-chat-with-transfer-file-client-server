@@ -10,7 +10,7 @@ public class CustomBundle extends ResourceBundle {
 
     @Override
     protected Object handleGetObject(String key) {
-        return bundle.get(key);
+            return bundle.get(key);
     }
 
     @Override

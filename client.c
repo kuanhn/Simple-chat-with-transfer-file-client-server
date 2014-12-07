@@ -224,7 +224,7 @@ int main(int argc, char *argv[]) {
 	      }
 	    } else { /* start show chat when clientid is set */
 	      char code = pkgbuf[0];
-	      char temp[MSG_SIZE];
+	      char temp[MSG_SIZE], name[MSG_SIZE];
 	      char* trimName;
 	      int id;
 
@@ -300,14 +300,21 @@ int main(int argc, char *argv[]) {
 		memcpy(msg, pkgbuf, result);
 		msg[result] = '\0'; /* Terminate string with null */ 
 		memset(temp, 0, strlen(temp));
-		strcpy(temp, msg+5);
+		strcpy(temp, msg+21);
+		temp[20]='\0';
+		strcpy(name, msg+1);
+		name[20]='\0';
+		char* trim = trimWhitespace(name);
 		strcpy(fileDownload, temp);
 		if ((fr=fopen(fileDownload, "w")) == NULL){
 		  printf("\nError: Cant open file %s\n", fileDownload);
 		  printf("Download fail\n");
 		  strcpy(fileDownload, ""); /* rollback */;
-		}else
+		}else{
 		  fclose(fr); /* just create blank file */
+		  strcpy(temp, msg+41);
+		  printf("\nYou can download file %s from %s use id:%s\n",fileDownload, trim, temp);
+		}
 		printf("%s>",nickname);
 		fflush(stdout);
 		break;

@@ -163,6 +163,8 @@ int main(int argc, char *argv[]) {
 		 other case will use msg with smaller size */
 	      if (result < 80)
 		printf("Server receive:%s|\n", pkgbuf);
+	      else 
+		printf("Server receiver something- %d - %c\n", result, pkgbuf[0]);
 	      int id = -1, check;       
 	      char code = pkgbuf[0];
 	      char name[MSG_SIZE];
@@ -327,7 +329,14 @@ int main(int argc, char *argv[]) {
 		    write(fd, msg, strlen(msg));
 		    close(tempfile_array[id].filedes);
 		  } else {
-		    sprintf(msg, "NYou can down load file %s now with file fileid: %d", tempfile_array[id].name, id);
+		    /* find sender name*/
+		    for(i=0;i<num_clients;i++){
+		      if(fd_array[i]==fd){
+			strcpy(temp, client_name_array[i]);
+			break;
+		      }
+		    }
+		    sprintf(msg, "D%20s%20s%d",temp, tempfile_array[id].name, id);
 		    write(tempfile_array[id].receiver_id, msg,  strlen(msg));
 		  }
 		}
@@ -342,13 +351,22 @@ int main(int argc, char *argv[]) {
 		if (tempfile_array[id].receiver_id != fd) break;
 		filedes = tempfile_array[id].filedes;
 		if (filedes == -1) break;
-		
-		lseek(filedes,0,SEEK_SET); /* rewind */
-		sprintf(pkgbuf, "D%4d%s", id, tempfile_array[id].name);
 
-		/* send file info first */
+		/*file sender*/
+		for(i=0;i<num_clients;i++){
+		  if (fd_array[i] == tempfile_array[id].send_id){
+		    strcpy(temp, client_name_array[i]);
+		    break;
+		  }
+		}
+
+		/* send file info first 
+		sprintf(pkgbuf, "D%20s%s", temp, tempfile_array[id].name);
 		write(fd, pkgbuf, strlen(pkgbuf));
 		fflush(stdout);
+		*/
+		
+		lseek(filedes,0,SEEK_SET); /* rewind */
 
 		memset(revbuf, 0, LENGTH);
 		memset(pkgbuf, 0, LENGTH+5);
@@ -365,15 +383,17 @@ int main(int argc, char *argv[]) {
 		msg[result] = '\0';
 		memcpy(temp, msg+1, 5);
 		temp[5] = '\0';
+		int decrease = 0; /* decrease 1 when find current user in list user */
 		if (strcmp(temp,"users")==0){
 		  for (i=0;i < num_clients;i+=30){/* send 30 users per package */
 		    memset(pkgbuf, 0, LENGTH+5);
 		    strcpy(pkgbuf, "Lusers");
+		    decrease = 0;
 		    for (j=0;j<30 && j+i< num_clients;j++){
-		      if (fd_array[i+j] == fd) continue;
-		      sprintf(pkgbuf+6+j*20,"%20s",client_name_array[i+j]);		      
+		      if (fd_array[i+j] == fd) {decrease++; continue;}
+		      sprintf(pkgbuf+6+j*20-decrease,"%20s",client_name_array[i+j]);		      
 		    }
-		    write(fd, pkgbuf, 6+j*20);
+		    write(fd, pkgbuf, 6+(j-decrease)*20);
 		    printf("sent:%s|\n",pkgbuf);
 		    fflush(stdout);
 		  }

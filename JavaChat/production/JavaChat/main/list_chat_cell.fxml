@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<VBox fx:id="chatContainer" prefWidth="480.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1">
+<children><AnchorPane prefHeight="20.0" prefWidth="480.0">
+<children><Button fx:id="actionButton" mnemonicParsing="false" text="Download" AnchorPane.rightAnchor="0.0" /><Label fx:id="nameLabel" text="Name" textFill="#2608e4">
+<VBox.margin>
+<Insets bottom="5.0" />
+</VBox.margin>
+<font>
+<Font name="System Bold" size="14.0" />
+</font></Label>
+</children></AnchorPane><Text fx:id="chatText" strokeType="OUTSIDE" strokeWidth="0.0" text="Text" wrappingWidth="488.7294921875" />
+</children>
+<padding>
+<Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+</padding></VBox>

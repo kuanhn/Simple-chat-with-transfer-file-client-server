@@ -1,12 +1,15 @@
 package main.controllers;
 
+import javafx.application.Platform;
 import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.stage.WindowEvent;
 import main.Helpers.CustomBundle;
 import main.Helpers.MessageHelper;
 import main.Main;
@@ -27,6 +30,7 @@ public class LoginViewController extends ViewController {
         try {
             errorLabel.setText("");
             socket = new Socket("localhost", 7400);
+            socket.setSendBufferSize(1029);
             helper = new MessageHelper(socket);
             loadMainView(socket);
         } catch (IOException e) {
@@ -38,6 +42,19 @@ public class LoginViewController extends ViewController {
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         super.initialize(location, resources);
+
+        // init close request handler
+        stage.setOnCloseRequest(new EventHandler<WindowEvent>() {
+            @Override
+            public void handle(WindowEvent event) {
+                try {
+                    closeSocket();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                Platform.exit();
+            }
+        });
 
         errorLabel.setText("");
     }
