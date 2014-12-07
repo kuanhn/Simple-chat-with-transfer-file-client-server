@@ -20,9 +20,9 @@
 
 - Run Client:
 
-C client: `./client -p` [PORT] [HOSTNAME] (chạy ngầm đinh ./client [HOSTNAME] sẽ connect tới port 7400)
+C client: `./client -p [PORT] [HOSTNAME]` (chạy ngầm đinh ./client [HOSTNAME] sẽ connect tới port 7400)
 
-Java client: java -jar JavaChat.jar (luôn chạy ngầm đinh trên port 7400 vì set cứng)
+Java client: `java -jar JavaChat.jar` (luôn chạy ngầm đinh trên port 7400 vì set cứng)
 
 ### 3. Test
 C client thì xem trong README.md trên github nhé
