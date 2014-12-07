@@ -32,7 +32,7 @@ public class LoginViewController extends ViewController {
             socket = new Socket("localhost", 7400);
             socket.setSendBufferSize(1029);
             helper = new MessageHelper(socket);
-            loadMainView(socket);
+            loadMainView(socket);   
         } catch (IOException e) {
             errorLabel.setText("Connection refused. Please check your connection.");
             e.printStackTrace();
